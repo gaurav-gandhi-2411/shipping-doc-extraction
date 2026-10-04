@@ -1,4 +1,4 @@
-# shipdoc-extract
+# shipping-doc-extraction
 
 ![python](https://img.shields.io/badge/python-3.11-blue)
 ![base model](https://img.shields.io/badge/base%20model-Qwen3.5--4B-informational)
@@ -48,7 +48,7 @@ The evaluators' data is not included.
 
 1. Put `data.zip` and `assignment.zip` (the evaluators' package) into Drive at `MyDrive/shipdoc-extract/`.
 2. Optional smoke test: run the smoke notebook (see "Smoke test of the repository on a T4" below).
-3. Run `02n_zeroshot500_native`, then `04c_predict_test_native` (defaults), at tag `submission-v2.3`.
+3. Run `02n_zeroshot500_native`, then `04c_predict_test_native` (defaults), at tag `submission-v2.4`.
 4. For the fine-tuned model, download the adapter from https://huggingface.co/gauravgandhi2411/shipdoc-extract-qwen3.5-4b-lora into Drive and run `04c_predict_test_native` again with `MODEL = "ft"`.
    `test_predictions.json` must have sha256
    440c4c74fbc606b5fa553065730feec9bf67512428d708f071513e69394ef704.
@@ -112,16 +112,16 @@ The v2 test submission (200 documents) was validated by a private validation scr
 The adapter on Hugging Face is the final adapter trained on the 400 train documents.
 
 **Public clone smoke (reproducibility evidence, UNVERIFIED: transcribed from a Colab banner).**
-Smoke test at the tag `submission-v1.5.1` of this repository: public clone smoke on NVIDIA L4 (tag
-submission-v1.5.1, anonymous clone, pin 3e88cc8): smoke gate 7/7 PASS, determinism identical (2
-docs); the submission runs used a T4. This is a smoke test, not a performance measurement; byte-
+Smoke test at the tag `submission-v2.2` of this repository: public clone smoke on Tesla T4, the
+submission GPU (anonymous clone, pin 3e88cc8): smoke gate 7/7 PASS, determinism identical. This
+is a smoke test, not a performance measurement; byte-
 identity of the 200 predictions needs the full 04c run on a T4 (expected sha256 in the Reproduce
 section).
 
 ### Reproduce v2 without retraining
 
-The v2 test predictions do not need the training run (the 03n `final` stage is about 4.3 hours on
-an L4: ESTIMATE, not measured): the final adapter is on Hugging Face, and notebook 04c in its
+The v2 test predictions do not need the training run (the 03n `final` stage took 4.29 hours on an
+L4, measured in the Colab session): the final adapter is on Hugging Face, and notebook 04c in its
 `MODEL = "ft"` mode verifies it and runs it on a T4. Do "Reproduce v1.5" steps 1 to 3 first (the
 Drive package, `02n_zeroshot500_native`, and 04c with its default `MODEL = "zs"`): the fine-tuned
 path takes the validated `submissions/v15_3e88cc8/` folder as input and runs no zero-shot
@@ -175,8 +175,8 @@ inference itself.
    `--batch-size 4` is the batch size of the v1.5 test run, not of the fine-tuned one. The second
    command must print `check-flags (native): flags_ok=True failed checks []`.
 
-**Optional: retrain.** Notebook `03n_finetune_native` with `STAGE = "final"` on an L4 (about 4.3 hours:
-ESTIMATE) writes `runs/ft_native_final_3e88cc8_bf16/`, the same folder name as above; its `final/`
+**Optional: retrain.** Notebook `03n_finetune_native` with `STAGE = "final"` on an L4 (4.29 hours measured
+in the Colab session) writes `runs/ft_native_final_3e88cc8_bf16/`, the same folder name as above; its `final/`
 is then what step 4 verifies. Training is not bit-reproducible: in the fold-1 verification the
 replayed steps differed slightly from the discarded ones (`reports/ft_native_fold1_verification.md`),
 so a retrained adapter may give different predictions than the published one. Use the downloaded
@@ -217,8 +217,9 @@ and test files, and the pin stays the first commit. On 2026-10-04 the repository
 `configs/public_notebooks.json` keeps the old URL, the notebooks and this README use the new one);
 the tag `submission-v2.2` carries that change (README, notebooks, notebook builders and their
 tests) and nothing else. The tag `submission-v2.3` is a README-only commit that removes the
-references to files that are not in this repository. The Colab badges below open each
-notebook at `submission-v2.3`. Both long notebooks are resumable: after a disconnect, Run all again (finished
+references to files that are not in this repository; `submission-v2.4` is a README-only commit
+that records the T4 smoke run of `submission-v2.2` and the measured training time. The Colab badges
+below open each notebook at `submission-v2.4`. Both long notebooks are resumable: after a disconnect, Run all again (finished
 stages are skipped).
 
 1. **Put the evaluators' package into Google Drive**, folder `MyDrive/shipdoc-extract/` of the
@@ -236,7 +237,7 @@ stages are skipped).
    the OCR stage itself, on the 280 test pages only.
 2. **Run `02n_zeroshot500_native`** (zero-shot over the 500 labelled documents; it sets the batch
    size the test run must reuse and is the baseline of every comparison below).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.3/notebooks/02n_zeroshot500_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.4/notebooks/02n_zeroshot500_native.ipynb)
    Runtime type T4 GPU, then Run all with every parameter at its default (the sha7 of the run
    folders is the pin's). Measured basis for the duration: 12,022 s of summed per-page decoding
    time over its 671 pages in the original run (about 3.3 T4 hours; wall-clock is longer by the
@@ -244,7 +245,7 @@ stages are skipped).
    picks the largest batch size whose outputs are byte-identical to batch 1 and that fits the GPU;
    it chose 4 in the original run (8 ran out of memory).
 3. **Run `04c_predict_test_native`** (the 200 test documents, 280 pages).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.3/notebooks/04c_predict_test_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.4/notebooks/04c_predict_test_native.ipynb)
    Same runtime, Run all, defaults (`MODEL = "zs"`). It runs a 5-document smoke gate, the test
    documents at the 02n batch size, a determinism pass, the OCR stage (PaddleOCR in its own
    environment) and the validated assembly with the rules R1 to R3. The original run took 5,664.5 s
@@ -299,7 +300,7 @@ verified.
 
 ### Smoke test of the repository on a T4 (about 15 to 20 minutes)
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.3/notebooks/public_smoke.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.4/notebooks/public_smoke.ipynb)
 `public_smoke.ipynb` clones this repository without a token, refuses unless `HEAD` is the pin,
 installs from `uv.lock`, decodes 5 documents (the same smoke gate as 02n) and prints a banner. It
 needs BOTH `data.zip` (only the 5 smoke documents are read out of it) and `assignment.zip` (your
