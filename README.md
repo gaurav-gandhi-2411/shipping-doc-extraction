@@ -48,7 +48,7 @@ The evaluators' data is not included.
 
 1. Put `data.zip` and `assignment.zip` (the evaluators' package) into Drive at `MyDrive/shipdoc-extract/`.
 2. Optional smoke test: run the smoke notebook (see "Smoke test of the repository on a T4" below).
-3. Run `02n_zeroshot500_native`, then `04c_predict_test_native` (defaults), at tag `submission-v2.2`.
+3. Run `02n_zeroshot500_native`, then `04c_predict_test_native` (defaults), at tag `submission-v2.3`.
 4. For the fine-tuned model, download the adapter from https://huggingface.co/gauravgandhi2411/shipdoc-extract-qwen3.5-4b-lora into Drive and run `04c_predict_test_native` again with `MODEL = "ft"`.
    `test_predictions.json` must have sha256
    440c4c74fbc606b5fa553065730feec9bf67512428d708f071513e69394ef704.
@@ -99,7 +99,7 @@ evidence only). OVERALL 98.12 (95% CI 96.76 to 99.29) against 89.31 (86.00 to 92
 rules on the same 100 documents (paired delta +8.82, CI +5.85 to +11.73); raw, without the rules,
 98.12 against 83.72 (+14.41). False fills 0 against 1, over-nulls 0 against 5; the rules changed no
 fine-tuned prediction. By slice: invoices 97.71, waybills 100.00, scanned 97.79, digital 98.32
-(`reports/dev_slices_native_v2.md`). This is NOT evidence of generalisation: the final adapter
+(from the dev-slice report of the 08 run, which is not published). This is NOT evidence of generalisation: the final adapter
 trained on 400 train documents whose suppliers include all 27 dev supplier groups, so dev is a
 seen-layout set for it; the supplier-held-out figure above (93.01) is the unseen-supplier estimate,
 and the two must not be mixed. The 08 run used an L4 (the test submission is T4): L4 and T4 numerics
@@ -107,7 +107,7 @@ are not byte-comparable and the batch composition differs, so the comparison wit
 indicative only. Stack of the 08 run, recorded from the Colab install cell and not stored in the run
 artifacts: torch 2.14.1+cu130, transformers 5.18.0, peft 0.21.2, xgrammar 0.2.8, pycountry 26.2.16,
 GPU NVIDIA L4 (the run manifest records bf16 training, fp16 merged weights and batch size 4).
-The v2 test submission (200 documents) was validated by validate_v2.py: schema errors 0, 200/200 ids, determinism 5/5 (Colab record), LOCK DECISION v2 VALIDATED. The review flags (review_flags.json) are advisory and separate: 37 of 200 test docs auto-accepted (realised accept share, not accuracy; nested estimate 13.6% at 97.1% precision).
+The v2 test submission (200 documents) was validated by a private validation script (not published): schema errors 0, 200/200 ids, determinism 5/5 (Colab record), LOCK DECISION v2 VALIDATED. The review flags (review_flags.json) are advisory and separate: 37 of 200 test docs auto-accepted (realised accept share, not accuracy; nested estimate 13.6% at 97.1% precision).
 
 The adapter on Hugging Face is the final adapter trained on the 400 train documents.
 
@@ -216,8 +216,9 @@ and test files, and the pin stays the first commit. On 2026-10-04 the repository
 `shipdoc-extract-public` to `shipping-doc-extraction` (GitHub redirects the old address; the pinned
 `configs/public_notebooks.json` keeps the old URL, the notebooks and this README use the new one);
 the tag `submission-v2.2` carries that change (README, notebooks, notebook builders and their
-tests) and nothing else. The Colab badges below open each
-notebook at `submission-v2.2`. Both long notebooks are resumable: after a disconnect, Run all again (finished
+tests) and nothing else. The tag `submission-v2.3` is a README-only commit that removes the
+references to files that are not in this repository. The Colab badges below open each
+notebook at `submission-v2.3`. Both long notebooks are resumable: after a disconnect, Run all again (finished
 stages are skipped).
 
 1. **Put the evaluators' package into Google Drive**, folder `MyDrive/shipdoc-extract/` of the
@@ -235,7 +236,7 @@ stages are skipped).
    the OCR stage itself, on the 280 test pages only.
 2. **Run `02n_zeroshot500_native`** (zero-shot over the 500 labelled documents; it sets the batch
    size the test run must reuse and is the baseline of every comparison below).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.2/notebooks/02n_zeroshot500_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.3/notebooks/02n_zeroshot500_native.ipynb)
    Runtime type T4 GPU, then Run all with every parameter at its default (the sha7 of the run
    folders is the pin's). Measured basis for the duration: 12,022 s of summed per-page decoding
    time over its 671 pages in the original run (about 3.3 T4 hours; wall-clock is longer by the
@@ -243,7 +244,7 @@ stages are skipped).
    picks the largest batch size whose outputs are byte-identical to batch 1 and that fits the GPU;
    it chose 4 in the original run (8 ran out of memory).
 3. **Run `04c_predict_test_native`** (the 200 test documents, 280 pages).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.2/notebooks/04c_predict_test_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.3/notebooks/04c_predict_test_native.ipynb)
    Same runtime, Run all, defaults (`MODEL = "zs"`). It runs a 5-document smoke gate, the test
    documents at the 02n batch size, a determinism pass, the OCR stage (PaddleOCR in its own
    environment) and the validated assembly with the rules R1 to R3. The original run took 5,664.5 s
@@ -298,7 +299,7 @@ verified.
 
 ### Smoke test of the repository on a T4 (about 15 to 20 minutes)
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.2/notebooks/public_smoke.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipping-doc-extraction/blob/submission-v2.3/notebooks/public_smoke.ipynb)
 `public_smoke.ipynb` clones this repository without a token, refuses unless `HEAD` is the pin,
 installs from `uv.lock`, decodes 5 documents (the same smoke gate as 02n) and prints a banner. It
 needs BOTH `data.zip` (only the 5 smoke documents are read out of it) and `assignment.zip` (your
