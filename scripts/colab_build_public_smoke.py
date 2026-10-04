@@ -48,7 +48,9 @@ zs = _load("colab_build_zs_native", ROOT / "scripts" / "colab_build_zs_native.py
 base = zs.base
 
 PINNED_SHA = base.public_pin(base.PIN_PLACEHOLDER)
-REPO_URL = base.PUBLIC["repo_url"] if base.PUBLIC else base.URL_PLACEHOLDER
+REPO_URL = (
+    base.notebook_repo_url(base.PUBLIC["repo_url"]) if base.PUBLIC else base.URL_PLACEHOLDER
+)
 SECRET_WORDS = ("GH_TOKEN", "x-access-token", "ANTHROPIC", "ghp_")  # none may appear in any cell
 
 TITLE = """# public smoke - does the public repository run on a T4? (about 15-20 minutes)

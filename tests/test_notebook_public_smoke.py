@@ -69,7 +69,7 @@ def test_pin_and_url_follow_the_config_and_a_placeholder_refuses() -> None:
     """No config (the private repo): placeholders. Public tree: whatever its config says."""
     cfg = builder.base.load_public_config()
     pin = cfg["pinned_sha"] if cfg else "FILL_PINNED_SHA"
-    url = cfg["repo_url"] if cfg else "FILL_PUBLIC_REPO_URL"
+    url = builder.base.notebook_repo_url(cfg["repo_url"]) if cfg else "FILL_PUBLIC_REPO_URL"
     assert f'PINNED_SHA = "{pin}"' in _src(PARAMS) and f'REPO_URL = "{url}"' in _src(CLONE)
     if "FILL" in pin:
         with pytest.raises(ValueError, match="PINNED_SHA"):

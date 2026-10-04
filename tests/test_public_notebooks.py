@@ -49,7 +49,15 @@ def test_the_private_repo_has_no_public_config_and_keeps_its_clone_cell() -> Non
     else:
         assert base.load_public_config() == base.PUBLIC
         assert base.public_pin("1" * 40) == base.PUBLIC["pinned_sha"]
-        assert "GH_TOKEN" not in base.CLONE and base.PUBLIC["repo_url"] in base.CLONE
+        assert "GH_TOKEN" not in base.CLONE
+        assert base.notebook_repo_url(base.PUBLIC["repo_url"]) in base.CLONE
+
+
+def test_a_renamed_repo_keeps_its_config_url_and_the_notebooks_carry_the_new_one() -> None:
+    old = "https://github.com/gaurav-gandhi-2411/shipdoc-extract-public.git"
+    new = "https://github.com/gaurav-gandhi-2411/shipping-doc-extraction.git"
+    assert base.notebook_repo_url(old) == new
+    assert base.notebook_repo_url(URL) == URL  # any other URL is untouched
 
 
 def test_config_loader_validates_and_fails_closed(tmp_path: Path) -> None:

@@ -208,6 +208,18 @@ def load_public_config(path: Path = PUBLIC_CONFIG_PATH) -> dict[str, str] | None
 
 
 PUBLIC = load_public_config()
+# The public repo was renamed after the pin (2026-10-04). configs/public_notebooks.json is part of
+# the pin and keeps the old URL (GitHub redirects it); the notebooks clone the canonical name.
+RENAMED_REPO_URLS = {
+    "https://github.com/gaurav-gandhi-2411/shipdoc-extract-public.git": (
+        "https://github.com/gaurav-gandhi-2411/shipping-doc-extraction.git"
+    ),
+}
+
+
+def notebook_repo_url(config_url: str) -> str:
+    """The clone URL a public notebook carries for the config's ``repo_url``."""
+    return RENAMED_REPO_URLS.get(config_url, config_url)
 
 
 def public_pin(private_sha: str) -> str:
@@ -252,7 +264,7 @@ with, and the inputs must be in that account's `MyDrive/shipdoc-extract/` (see t
 README, "Reproduce from images").
 """
 if PUBLIC:
-    CLONE = PUBLIC_CLONE.replace("@@REPO_URL@@", PUBLIC["repo_url"])
+    CLONE = PUBLIC_CLONE.replace("@@REPO_URL@@", notebook_repo_url(PUBLIC["repo_url"]))
 
 _SECRET_LINE = 'GH_TOKEN = get_secret("GH_TOKEN", required=True)\n'
 _ACCOUNT_LINE = re.compile(r'EXPECTED_ACCOUNT = "[^"\n]*"\n')
