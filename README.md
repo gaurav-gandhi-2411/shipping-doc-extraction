@@ -26,9 +26,144 @@ and its history were scanned against every train and dev label value of eight or
 ## Final system
 
 <!--FINAL-SYSTEM:BEGIN-->
-The submitted system is stated in this block once the pre-registered pooled rule has been
-evaluated on all three folds and the test submission has been validated. The v1.5 reproduction
-steps (Part 1) and the fine-tuning evidence (Part 2) below are complete and do not depend on it.
+The submitted system is **v2**: the LoRA-fine-tuned model plus the rules plus review flags (v1.5,
+the zero-shot variant, is the baseline it had to beat). The zero-shot baseline with the rules
+scores 88.51 OVERALL on the 500 labelled documents (83.86 without the rules); an all-empty
+baseline scores 1.93 (train) and 1.65 (dev).
+
+**Pooled three-fold result of the pre-registered rule** (`spec.md` section 11, item 1;
+`reports/g4_pooled_native.md`). Each of the 500 documents is predicted by the adapter of the fold
+that held its supplier out of training, both arms carry the rules, and the R3 shapes are learned
+outside the fold. Fine-tuned + rules scores 93.31 OVERALL against 88.51 for zero-shot + rules, a
+paired delta of +4.80 points (95% CI +3.59 to +6.14; C1 holds). False fills: 5 against 76 (C2
+holds). Over-nulls: 7 against 33 (C3 holds). All three clauses hold, so the rule selects
+fine-tuned + rules. Without the rules the fold deltas are +2.81 (fold 0), +14.31 (fold 1) and
++9.53 (fold 2) points. The held-out training loss of fold 2 ended higher than that of folds 0 and
+1 (0.00675 against 0.00175 and 0.00069; `reports/ft_native_fold2_verification.md`).
+
+**Supplier-held-out dev100.** The 100 dev documents, each predicted by the fold model that never
+saw its supplier, score 93.01 OVERALL (95% CI 90.17 to 95.77) against 89.31 (86.00 to 92.77) for
+zero-shot + rules on the same documents (paired delta +3.70, CI +0.89 to +6.77); the rules move
+the fine-tuned OVERALL there by +0.00. Reproduce with `scripts/dev_slices_native.py --mode
+dev_oof`. The final adapter, in contrast, has seen every dev supplier group in train (dev is a
+seen-layout set for it).
+
+**Per-field gate G** (a gate between the two arms; exploratory, not shipped): pooled, G does not replace fine-tuned + rules (G1: OVERALL CI lower bound -1.78 points; G2:
+76 false fills against 5; G3: 15 over-nulls against 7; `reports/gate_pooled_native.md`).
+
+**Review flags (advisory).** The frozen flag calibrator for the fine-tuned arm is
+`meta/calibrator_ft_native.json`, the `v2_agree` variant (sha256
+`cf33ed9cc19da31d49c90e0d05df0db6763f159fd52a80baca9b20d3ebe4ef8e`, run config hash
+`e4b84ec2809625d5`). Its cross-fitted, nested row-field precision at the 98% target is BELOW
+target (`reports/calibration_v3_native_3fold.md`, `v2_agree` rows; precision, then coverage, in
+percent): supplier part number 93.2 (60.9), customer part number 94.8 (21.0), purchase order 71.9
+(7.2), quantity 89.6 (13.7); header fields 100.0 (99.7). The plain `v2` variant had higher AUROC on
+those fields, but choosing it would have been a post-hoc choice. At document level the nested
+flag accepts 13.6% of the documents at 97.1% precision, also below the 98% target. The flags are
+advisory only and are not part of `test_predictions.json`.
+
+**Final adapter, dev100, seen layouts, NVIDIA L4 fp16 inference** (notebook 08, rules on; dev
+evidence only). OVERALL 98.12 (95% CI 96.76 to 99.29) against 89.31 (86.00 to 92.77) for zero-shot +
+rules on the same 100 documents (paired delta +8.82, CI +5.85 to +11.73); raw, without the rules,
+98.12 against 83.72 (+14.41). False fills 0 against 1, over-nulls 0 against 5; the rules changed no
+fine-tuned prediction. By slice: invoices 97.71, waybills 100.00, scanned 97.79, digital 98.32
+(`reports/dev_slices_native_v2.md`). This is NOT evidence of generalisation: the final adapter
+trained on 400 train documents whose suppliers include all 27 dev supplier groups, so dev is a
+seen-layout set for it; the supplier-held-out figure above (93.01) is the unseen-supplier estimate,
+and the two must not be mixed. The 08 run used an L4 (the test submission is T4): L4 and T4 numerics
+are not byte-comparable and the batch composition differs, so the comparison with the T4 numbers is
+indicative only. Stack of the 08 run, recorded from the Colab install cell and not stored in the run
+artifacts: torch 2.14.1+cu130, transformers 5.18.0, peft 0.21.2, xgrammar 0.2.8, pycountry 26.2.16,
+GPU NVIDIA L4 (the run manifest records bf16 training, fp16 merged weights and batch size 4).
+The v2 test submission (200 documents) was validated by validate_v2.py: schema errors 0, 200/200 ids, determinism 5/5 (Colab record), LOCK DECISION v2 VALIDATED. The review flags (review_flags.json) are advisory and separate: 37 of 200 test docs auto-accepted (realised accept share, not accuracy; nested estimate 13.6% at 97.1% precision).
+
+The adapter on Hugging Face is the final adapter trained on the 400 train documents.
+
+**Public clone smoke (reproducibility evidence, UNVERIFIED: transcribed from a Colab banner).**
+Smoke test at the tag `submission-v1.5.1` of this repository: public clone smoke on NVIDIA L4 (tag
+submission-v1.5.1, anonymous clone, pin 3e88cc8): smoke gate 7/7 PASS, determinism identical (2
+docs); the submission runs used a T4. This is a smoke test, not a performance measurement; byte-
+identity of the 200 predictions needs the full 04c run on a T4 (expected sha256 in the Reproduce
+section).
+
+### Reproduce v2 without retraining
+
+The v2 test predictions do not need the training run (the 03n `final` stage is about 4.3 hours on
+an L4: ESTIMATE, not measured): the final adapter is on Hugging Face, and notebook 04c in its
+`MODEL = "ft"` mode verifies it and runs it on a T4. Do "Reproduce v1.5" steps 1 to 3 first (the
+Drive package, `02n_zeroshot500_native`, and 04c with its default `MODEL = "zs"`): the fine-tuned
+path takes the validated `submissions/v15_3e88cc8/` folder as input and runs no zero-shot
+inference itself.
+
+1. **Download the final adapter** from Hugging Face: https://huggingface.co/gauravgandhi2411/shipdoc-extract-qwen3.5-4b-lora (the whole repository, in
+   the browser or with `huggingface-cli download <repo-id> --local-dir final`). The repository is
+   laid out as the notebook's `final/` folder, so the download maps 1:1:
+
+   ```
+   README.md                          the model card (not needed on Drive)
+   manifest.json                      the training-run manifest (document ids and hashes, no values)
+   adapter.pt                         hash-checked by the notebook, never loaded by it
+   peft/adapter_config.json           what the loader reads
+   peft/adapter_model.safetensors     what the loader reads
+   ```
+
+   The sha256 of `peft/adapter_model.safetensors` is 80037955e06f4542c161df864c11411c834e26ea6a1fad20112a74ffadc485b3
+   (`sha256sum`); `manifest.json` carries the hashes of the other weight files.
+2. **Put it into Drive** at exactly `MyDrive/shipdoc-extract/runs/ft_native_final_3e88cc8_bf16/final/`
+   (create the folders; the final folder then holds `manifest.json`, `adapter.pt` and `peft/`). That is
+   the notebook's default `ADAPTER_DIR`, `runs/ft_native_final_<TRAIN_SHA7>_<PRECISION>/final`, with the
+   defaults `TRAIN_SHA7` = the pin's sha7 and `PRECISION = "bf16"`.
+3. **Open `04c_predict_test_native`** from the badge of "Reproduce v1.5" step 3, runtime T4 GPU, and
+   change one parameter: `MODEL = "ft"`. Leave `ZS_SHA7`, `TRAIN_SHA7`, `PRECISION`, `ZS_TEST_DIR` and
+   `BATCH_SIZE = None` at their defaults (the batch size is the one stored with the 02n run, 4 in the
+   original run). Optional: `CALIBRATOR_FILE = "meta/calibrator_ft_native.json"` computes the review
+   flags inside the notebook (else that cell stops on purpose, as in v1.5; use step 6).
+4. **Run all.** The first stop is the adapter verification: one row per check (stage `final`; the
+   training documents are exactly the 400 train documents, no dev or test document; hashes of the
+   three weight files; LoRA r=16, 200 modules, 30,474,240 parameters; inference keys; resolution
+   2,196,480 pixels; the training commit reachable in the clone). Any FAIL row refuses and nothing
+   runs after it; do not edit the manifest to pass. Then merge, batch guard, smoke gate, the 200
+   test documents, a determinism pass and the validated assembly. The banner reads `TEST
+   PREDICTIONS v2n (fine-tuned, final native adapter, NATIVE + R1-R3) VALIDATED: SUBMITTABLE`;
+   the output is `MyDrive/shipdoc-extract/submissions/v2n_3e88cc8/`.
+5. **Check the result.** `test_predictions.json` must have sha256
+   440c4c74fbc606b5fa553065730feec9bf67512428d708f071513e69394ef704 and cover 200 of 200 ids (`validation_report.json`).
+   That is the byte-identity check, as for v1.5; it holds for the same inference setup (T4, batch
+   size 4) and is UNVERIFIED on other GPU types.
+6. **Review flags on CPU** (a local clone at the pin as in v1.5 step 5; work on a copy of the
+   `v2n_3e88cc8` folder, the second command rewrites its manifest and report). The frozen calibrator
+   `meta/calibrator_ft_native.json` is in this repository (sha256
+   `cf33ed9cc19da31d49c90e0d05df0db6763f159fd52a80baca9b20d3ebe4ef8e`):
+
+   ```
+   uv run python -m shipdoc.predict_native flags --model ft --submission-dir <copy of v2n folder> --calibrator meta/calibrator_ft_native.json --ocr-cache <ocr_cache_test folder> --zs-test-dir <v15_3e88cc8 folder> --batch-size 4 --field-target 0.98 --doc-target 0.98 --expect-docs 200
+   uv run python -m shipdoc.predict_native check-flags --out-dir <copy of v2n folder> --calibrator meta/calibrator_ft_native.json --field-target 0.98 --doc-target 0.98 --expect-docs 200
+   ```
+
+   `--batch-size 4` is the batch size of the v1.5 test run, not of the fine-tuned one. The second
+   command must print `check-flags (native): flags_ok=True failed checks []`.
+
+**Optional: retrain.** Notebook `03n_finetune_native` with `STAGE = "final"` on an L4 (about 4.3 hours:
+ESTIMATE) writes `runs/ft_native_final_3e88cc8_bf16/`, the same folder name as above; its `final/`
+is then what step 4 verifies. Training is not bit-reproducible: in the fold-1 verification the
+replayed steps differed slightly from the discarded ones (`reports/ft_native_fold1_verification.md`),
+so a retrained adapter may give different predictions than the published one. Use the downloaded
+adapter for the byte-identical reproduction. The fold adapters and the out-of-fold protocol behind
+the pooled result are described in "The fine-tuned path" and Part 2.
+
+**Provenance of the published `manifest.json`.** The adapter was trained at the original,
+private development commit `4c17aa3c33c09f0cda7bb1f625947a1143a8cb28`, which does not exist in this
+squashed repository, so the notebook's reachability check on the training commit would refuse it
+here. The published manifest therefore has `code_sha` set to this repository's pinned commit
+`3e88cc8aa4bc2c33ac676c4c52395271f570b9cd`; the original is kept in `code_sha_original` and
+explained in `code_sha_note`. Nothing else in the manifest and none of the weights were changed:
+the sha256 of the weight files is the adapter's identity, and no recorded hash covers `code_sha`
+(`manifest_hash` covers the training document ids only). Compared file by file, the code of the two commits
+(`src/shipdoc`, `configs`, `pyproject.toml`, `uv.lock`): 85 files are byte-identical; four differ, the
+review-flag stage (`flags.py`), the `check-flags` command (`predict_native.py`), an offline
+module nothing imports (`gate.py`) and the public-notebook settings (`configs/public_notebooks.json`);
+the training entry points (`train`, `trainset`) import none of them (`reports/public_code_equivalence.md`
+describes the same comparison for the v1.5 path).
 <!--FINAL-SYSTEM:END-->
 
 # Part 1. The v1.5 path (zero-shot base model, rules, review flags)
@@ -292,12 +427,14 @@ notebook shares the one pin and every parameter default already holds the right 
    ```
 
    The pooled script applies the pre-registered rule of `spec.md` section 11, item 1.
-4. **`08_dev_final.ipynb`**, T4: official dev score of the final adapter at the native resolution
+4. **`08_dev_final.ipynb`**, L4 (the 08 run was on an L4; the notebook has no GPU-name
+   dependence): official dev score of the final adapter at the native resolution
    (seen layouts). Output `runs/devfinal_native_<sha7>/`.
 5. **`04c_predict_test_native.ipynb`**, T4, `MODEL = "ft"`; `ZS_TEST_DIR` stays at the validated
    v1.5 folder. Output `submissions/v2n_<sha7>/`.
-   Review flags for the fine-tuned arm need a native fine-tuned calibrator and the zero-shot test
-   directory as input; neither is part of the v1.5 flow and their local command is not verified.
+   Review flags for the fine-tuned arm use the frozen calibrator meta/calibrator_ft_native.json
+   and the validated v1.5 folder as the zero-shot view; command below (dry-checked on a synthetic
+   folder, run on the real v2 folder at submission time: see the v2 section).
 
 Further analysis scripts (all CPU, aggregates only): `scripts/rule_gate.py`,
 `scripts/false_fill_diag.py`, `scripts/calibrate_v2.py`, `scripts/calibrate_v3.py`,
@@ -352,12 +489,12 @@ glob; without it that analysis skips the tokenizer part) and `wandb_log_public.p
 ## Hugging Face and Weights & Biases
 
 - Hugging Face: a LoRA adapter for `Qwen/Qwen3.5-4B`, with a model card (no data, metrics only):
-  [[PUBLISH:hf_url]]
+  https://huggingface.co/gauravgandhi2411/shipdoc-extract-qwen3.5-4b-lora
   The section "Final system" and the model card say which adapter it is: the fold-0
   cross-validation model (trained on 329 of the 500 documents) or the final adapter (trained on the
   400 train documents).
 - Weights & Biases: public project `shipdoc-extract` with the fine-tuning configuration, loss
-  curves and held-out loss only (no images, no document ids, no values): [[PUBLISH:wandb_url]]
+  curves and held-out loss only (no images, no document ids, no values): https://wandb.ai/gauravgandhi429-gaurav-gandhi/shipdoc-extract
 
 ## Licence
 
