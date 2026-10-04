@@ -1,0 +1,82 @@
+# shipdoc-extract: structured extraction from shipping documents
+
+{{auto:banner}}
+
+{{auto:legend}} Report date {{values.report_date}}, commit {{values.commit_sha}}.
+
+## 1. Approach and why
+
+The target is accuracy on supplier layouts the system has never seen, so the primary metric is leave-supplier-out out-of-fold (OOF) OVERALL with K=3 supplier-grouped folds ({{values.suppliers_per_fold}} suppliers per fold), not the official dev score, which measures seen layouts. Invoice-only OOF is the headline because waybill groups (carrier brand) do not track layout. The model is Qwen3.5-4B, {{values.model_state}}. The safety architecture has three parts: (a) verbatim extraction: values are copied from the page and schema-repaired deterministically, never inferred; (b) a verifier that scores each field from token log-probabilities, OCR support, validators and cross-page agreement; (c) nulls come from the model. A calibrated-null policy (null iff P(gold null) exceeds P(value correct)) was tested and REJECTED for row fields because it lowered OVERALL ({{calibration.row_null_policy.delta|dci}} points, paired CI; header nulls unchanged). Reviewer routing uses per-field-type thresholds chosen by nested out-of-fold selection for at least 98% auto-accept precision; that target is met for header fields, approached but not met at the point estimate for the supplier part number, and out of reach for the other row fields and at document level (see the review-flag section for the numbers).
+
+## 2. Results by slice
+
+Unseen layouts (OOF), invoice-only HEADLINE: OVERALL {{oof.subsets.invoices.oof.ci95.OVERALL|ci}} on {{oof.subsets.invoices.n_docs|int}} held-out invoices, against zero-shot {{oof.subsets.invoices.zero_shot.ci95.OVERALL|ci}} on the same documents (paired delta {{oof.subsets.invoices.paired_delta_oof_minus_zero_shot.OVERALL|dci}} points). Overall OOF (invoices and waybills): {{oof.subsets.all.oof.ci95.OVERALL|ci}}. Seen layouts (official dev): {{dev.slices.all.ci95.OVERALL|ci}}.
+
+{{table:results}}
+
+{{table:oof_vs_zero_shot}}
+
+False fills are split by why the gold is null, because only redactions are genuinely illegible; the synthetic row is a constructed stress test, not a real-document result.
+
+{{table:false_fill}}
+
+## 3. Ablation ladder (paired deltas)
+
+Each rung adds one component to the previous one; deltas are paired doc-level bootstraps on the same {{ablation.n_docs|int}} documents ({{ablation.split}}). Rules that change no value on this data are kept as fail-closed safety nets for unseen suppliers and no benefit is claimed for them.
+
+{{table:ablation}}
+
+## 4. Post-processing rules (R1-R3)
+
+Deterministic merge rules run after extraction; a rule ships only if the paired CI of its OVERALL delta excludes zero with no broken cell. R1 fills a null waybill carrier from the model's own supplier-name slot. R2 backfills a null MAWB/HAWB from a unique OCR pattern match. R3 moves customer-part and PO values into the slot whose format shape they match. Gate evidence (R1, R2 on {{rules.train_docs|int}} train docs; R3 supplier-held-out on {{rules.r3_docs|int}} docs), cells fixed / broken and OVERALL delta in points: R1 {{rules.r1.fixed|int}} / {{rules.r1.broken|int}}, {{rules.r1.delta|dci}}; R2 {{rules.r2.fixed|int}} / {{rules.r2.broken|int}}, {{rules.r2.delta|dci}}; R3 {{rules.r3.fixed|int}} / {{rules.r3.broken|int}}, {{rules.r3.delta|dci}}. All three together through the production path: {{rules.combined.delta|dci}} points. R2 needs OCR at inference, a deployment cost; the OCR-free variant fixes {{rules.r2_ocrfree.fixed|int}} cells. **R3 disclosure:** its gains are concentrated: {{rules.r3.top3_fixed|int}} of {{rules.r3.total_fixed|int}} fixed rows come from {{rules.r3.top_n|int}} of {{rules.r3.groups_total|int}} invoice groups ({{rules.r3.groups_touched|int}} touched). The learned shapes equal the all-gold set in {{calibration.shapes_equal_folds|int}} of {{calibration.shapes_folds|int}} folds, so the supplier-held-out gate cannot show leakage but also cannot show transfer to a new format; R3 is judged only on folds where it fires.
+
+## 5. Failure analysis
+
+Diagnosed on dev run {{failure.run_id}} ({{failure.n_docs|int}} docs, a smaller set than the train+dev docs used elsewhere) from the row/header error taxonomy. Recoverable points are ORACLE upper bounds (the cause replaced by gold), not achievable gains.
+
+- **Part-number misreads** ({{failure.causes.spn_misread.rows|int}} rows, {{failure.causes.spn_misread.docs|int}} docs; oracle {{failure.causes.spn_misread.oracle|dci}} points). Root cause: the right line is read with one or two wrong characters; the OCR text is also wrong in part of the cases, so snapping to the nearest OCR span breaks as many rows as it fixes (rule R4). Fix: glyph-level fine-tuning targets for part numbers.
+- **Column shift on continuation pages** ({{failure.causes.column_shift.rows|int}} rows, {{failure.causes.column_shift.docs|int}} docs; oracle {{failure.causes.column_shift.oracle|dci}} points). Root cause: continuation pages carry no column-header row, so the model guesses the column order and values land one slot off; the contrast holds inside supplier groups. Fix: pass the first-page column order to continuation pages and train on continuation-page rows.
+- **PO written into the customer-part slot** ({{failure.causes.po_in_cpn_slot.rows|int}} rows; oracle {{failure.causes.po_in_cpn_slot.oracle|dci}} points). Root cause: layouts without a customer-part column and with a PO column. Fix: a prompt/fine-tune target that leaves the slot null, or the format-shape swap rule R3 (its shapes are format shapes learned from the gold of the other suppliers, not synthetic formats).
+
+## 6. A new supplier arrives tomorrow
+
+On the first day: zero-config extraction; low-confidence fields go to a human reviewer. Reviewer corrections feed an active-learning queue. Any fine-tuned adapter would be refreshed periodically and adopted only if it beats the zero-shot-plus-rules system on three-fold out-of-fold evaluation (pre-registered rule in the spec's closing plan). Drift is monitored per layout cluster (review rate and null rate); the label-free cluster diagnostic on the test set found {{clusters.n_clusters|int}} invoice layout clusters over {{clusters.n_test_docs|int}} documents, with a raw unseen-layout flag share of {{clusters.estimated_unseen_share|pctp}} (a proxy that misses most truly unseen suppliers) and a predicted review rate of {{clusters.predicted_review_rate|pctp}}.
+
+## 7. Review flag
+
+A field is auto-accepted when P(correct) clears a per-field-type threshold chosen by nested out-of-fold selection (each fold's threshold is chosen on the other folds) for at least 98% auto-accept precision; coverage at the 95% and 99% targets is also shown. Coverage is the share of emitted fields auto-accepted. Status: attained; near-miss (point precision under target, CI contains it); NOT ATTAINABLE (precision under target, or coverage under {{calibration.min_coverage|pctp}}). ECE is the expected calibration error of P(correct). Only header fields and the supplier part number come within reach of the target; the other row fields and the document level go to review.
+
+{{table:review}}
+
+Caveats: the dev slice has only {{calibration.dev_docs|int}} docs, so its intervals are wide and it is not a separate test (the table pools zero-shot outputs on all {{calibration.n_docs|int}} train+dev docs, with calibrators cross-fitted by supplier folds); CIs resample documents but condition on the selected thresholds.
+
+## 8. Cost and latency on T4
+
+Timing basis: {{cost.timing_basis}}; the kernels note is in the limitations. Every figure comes only from the latency and cost inputs.
+
+- **Inference ({{cost.gpu}}, batch size {{cost.batch_size|int}}).** Model time per page is {{cost.test.s_per_page|sec}} s on the test run ({{cost.test.model_time_s|sec}} s over {{cost.test.pages|int}} pages; wall clock {{cost.test.wall_clock_s|sec}} s) and {{cost.zeroshot.s_per_page|sec}} s on the zero-shot run ({{cost.zeroshot.session_s|sec}} s over {{cost.zeroshot.pages|int}} pages). The zero-shot per-page trace gives {{latency.s_per_page_mean|sec}} s mean, {{latency.s_per_page_median|sec}} median, {{latency.s_per_page_p95|sec}} p95 over {{latency.pages|int}} pages; peak VRAM {{latency.peak_vram_gib|f1}} GiB.
+- **OCR ({{cost.ocr.engine}} on {{cost.ocr.device}}).** {{cost.ocr.s_per_page_mean|sec}} s per page mean, {{cost.ocr.s_per_page_p95|sec}} p95 ({{cost.ocr.compute_s|sec}} s of compute over {{cost.ocr.pages|int}} pages; wall clock {{cost.ocr.wall_s|sec}} s).
+- **Per {{cost.submission.docs|int}}-document submission, GPU hours.** Model only {{cost.submission.vlm_h|sec}}; model plus OCR {{cost.submission.full_h|sec}}; reuse mode (the model output is reused, only OCR runs) {{cost.submission.reuse_ocr_h|sec}} for OCR and {{cost.submission.reuse_vlm_h|sec}} for the model.
+- **Fine-tuning, first fold ({{cost.train_gpu}}, {{cost.train.precision}}).** {{cost.train.hours|sec}} h = {{cost.train.steps|int}} steps at {{cost.train.s_per_step|sec}} s per step (measured, per-step sum; {{cost.train.sessions|int}} sessions, {{cost.train.interrupted_sessions|int}} interrupted, so wall clock was longer); peak VRAM {{cost.train.peak_vram_gib|f1}} GiB. GPU label: {{cost.train_gpu_source}}.
+- **Out-of-fold inference, first fold ({{cost.gpu}}).** {{cost.oof.hours|sec}} h of session time over {{cost.oof.pages|int}} pages, including model load, adapter merge and the batch guard ({{cost.oof.load_and_merge_s|sec}} s load and merge).
+- **Native resolution (ESTIMATE, UNVERIFIED at batch size {{cost.batch_size|int}}).** The resolution sweep ran at batch size one and raised s per page by a factor of {{cost_est.native_factor|sec}}; applied to the measured batch-size-eight time this gives {{cost_est.native_s_per_page|sec}} s per page and {{cost_est.native_vlm_h|sec}} GPU hours of model time per submission. Batch-size-eight peak VRAM at native resolution is UNMEASURED.
+- **Price.** {{cost_est.hourly_usd|usd}} per GPU hour ({{cost_est.price_source}}) and {{cost.pages_per_doc|f1}} pages per document give {{cost_est.usd_per_1000_docs|usd}} per 1,000 docs (an estimate, not a bill; no price source exists yet).
+
+## 9. Links
+
+GitHub: {{values.github_url}}. Hugging Face: {{values.hf_url}}. Weights and Biases: {{values.wandb_url}}.
+
+## Honest limitations and what would fix each
+
+- Dev is small (n={{dev.slices.all.documents|int}}, CI half-width {{dev.OVERALL_ci95|ciw}} points) and has seen layouts. Fix: report the OOF headline and re-gate on a larger held-out supplier set.
+- Waybill groups track carrier brand, not layout, so waybill OOF is not an unseen-layout estimate. Fix: cluster waybills by an OCR layout signature and fold on clusters.
+- Row part numbers depend on OCR quality for scanned pages and for the verifier's OCR-support feature. Fix: a stronger OCR or a scan-augmented fine-tune.
+- Each fold has only {{values.suppliers_per_fold}} suppliers, so fold-level estimates are noisy. Fix: more suppliers per fold or repeated grouped splits.
+- The fine-tuned system is adopted only if it beats the zero-shot-plus-rules system on three-fold out-of-fold evaluation (pre-registered rule); no fine-tuned claim is made from fewer than K=3 scored folds. Fix: train and score the remaining folds before the final claim.
+- R3 gains are concentrated in a few invoice groups and its learned shapes do not differ across folds, so transfer to a new format is untested. Fix: evaluate on a held-out supplier whose format is not in train; collect more suppliers.
+- Calibration CIs condition on the selected thresholds, and the calibrator model choice used the reported cross-fitted predictions. Fix: an outer holdout.
+- The production pipeline needs OCR at inference for R2. Fix: OCR-free recovery or a model that reads those fields.
+- Timing is {{cost.timing_basis}}, on shared Colab hardware without repeats, and the native-resolution cost is an estimate. Fix: repeat the runs and measure the final pipeline on a T4 at batch size {{cost.batch_size|int}}.
+- The zoom re-read of small print is future work: it is not part of the submitted pipeline and no result is claimed for it. Fix: build and gate it on held-out suppliers.
+- The inference environment lacks the causal-convolution and flash-linear-attention kernels and runs the reference fallback; faster kernels are a latency lever that is UNVERIFIED (no measurement exists). Fix: install them and re-measure latency and accuracy.
+- Review-flag precision is bounded by calibrator quality on small per-type counts. Fix: collect reviewer decisions as labels and recalibrate per layout cluster.

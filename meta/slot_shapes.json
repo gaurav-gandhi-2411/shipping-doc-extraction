@@ -1,0 +1,19 @@
+{
+ "cpn_only": [
+  "99-9999-99",
+  "AA-999999"
+ ],
+ "folds_sha256": "1ebf353d08cb7d5f061a3cd5a0dcae33219e5308e76f38c93470329989e80aa0",
+ "learned_from": "ALL train + dev gold docs of splits/folds.json (the shipping artefact; IN-SAMPLE for those 500 docs). The held-out evidence is the per-fold supplier-held-out gate (reports/rule_gate.md), not this file.",
+ "n_cpn_cells": 1934,
+ "n_docs": 500,
+ "n_invoice_docs": 400,
+ "n_po_cells": 2975,
+ "po_only": [
+  "A99999999-999",
+  "AA9999999999"
+ ],
+ "rule": "R3 slot_shape",
+ "schema": 1,
+ "shape_alphabet": "digits -> 9, ASCII letters -> A, everything else kept (rules.shape_of)"
+}

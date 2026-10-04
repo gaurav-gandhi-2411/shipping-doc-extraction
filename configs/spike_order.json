@@ -1,0 +1,11 @@
+{
+ "_comment": "Spike run order, cheapest first by estimated GPU time (scripts/gpu_estimate.py, configs/spike_speed.json). Edit and regenerate the notebook to change the order; no code edit needed. Estimates are PLACEHOLDERS until the speed file holds trace-measured values.",
+ "order": [
+  "nuextract3_img_ocr_compact",
+  "nuextract3_img_only_compact",
+  "qwen35_4b_img_ocr_compact",
+  "qwen35_4b_img_only_compact",
+  "qwen3vl_8b_img_only_compact",
+  "qwen3vl_8b_img_ocr_compact"
+ ]
+}

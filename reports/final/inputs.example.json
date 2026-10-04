@@ -1,0 +1,23 @@
+{
+  "schema": "shipdoc-report-inputs/1",
+  "sources": {
+    "dev": {"path": "<RUNS_DIR>/<final_dev_run>/metrics.json", "status": "unverified"},
+    "oof": {"path": "<RUNS_DIR>/<oof_run>/oof_compare.json", "status": "unverified"},
+    "ablation": {"path": "<OUT_DIR>/ablation.json", "status": "unverified"},
+    "failure": {"path": "<OUT_DIR>/failure.json", "status": "unverified"},
+    "calibration": {"path": "<OUT_DIR>/calibration.json", "status": "unverified"},
+    "rules": {"path": "<OUT_DIR>/rules.json", "status": "unverified"},
+    "clusters": {"path": "<OUT_DIR>/clusters.json", "status": "unverified"},
+    "cost": {"path": "<OUT_DIR>/cost.json", "status": "estimated"}
+  },
+  "trace": {"path": "<RUNS_DIR>/<02_run>/trace.jsonl", "status": "unverified"},
+  "values": {
+    "github_url": "UNPUBLISHED",
+    "hf_url": "UNPUBLISHED",
+    "wandb_url": "UNPUBLISHED",
+    "report_date": "YYYY-MM-DD",
+    "commit_sha": "<git sha>",
+    "model_state": "<zero-shot | LoRA fine-tuned on all of train>",
+    "suppliers_per_fold": "<n>"
+  }
+}

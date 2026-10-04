@@ -1,0 +1,87 @@
+# Fine-tune configuration, pre-registered BEFORE fold 0 is run (reports/finetune_plan.md V1c).
+# Read by shipdoc.train.load_config; an unknown key is an error. Every value here is hashed into
+# the run signature, so a checkpoint only resumes under the same config. UNVERIFIED: nothing
+# below was run on a GPU; the lr / epochs are a conventional LoRA starting point, not tuned.
+seed: 42
+repo: Qwen/Qwen3.5-4B
+revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+adapter: qwen35
+max_pixels: 1310720            # 1280*32*32 -> exactly 1,260 visual tokens on a 1240x1754 page
+expected_visual_tokens: 1260   # asserted for every sample (src/shipdoc/train.py encode_page)
+# auto: bf16 on compute capability >= 8 (Colab L4, recommended), fp16 + GradScaler on a T4.
+precision: auto
+
+lora:
+  r: 16                        # 200 modules, 30,474,240 trainable params at r=16
+  alpha: 32
+  dropout: 0.05
+  bias: none
+  # Language model only; anchored so the vision tower can never match. Single quotes: no escapes.
+  target_regex: 'model\.language_model\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|linear_attn\.(in_proj_qkv|in_proj_z|out_proj)|mlp\.(gate_proj|up_proj|down_proj))'
+
+optim:
+  lr: 0.0002
+  weight_decay: 0.0
+  beta1: 0.9
+  beta2: 0.999
+  grad_clip: 1.0
+  warmup_ratio: 0.1
+  min_lr_ratio: 0.0            # cosine to zero
+
+# STAGE ORDER (reminder, no code gate): smoke -> fold0 -> OOF inference of fold 0's held-out
+# pages on a T4 vs zero-shot -> fold1, fold2 and final ONLY if fold 0 shows no regression on its
+# held-out suppliers. A fold run ends with <run>/final/{adapter.pt, manifest.json, peft/}.
+# Fixed schedule, micro-batch 1, effective batch 8 pages. NO early stopping on held-out loss:
+# the fold's held-out docs decide G4, so they must not select the checkpoint (plan, leakage note;
+# this departs from spec Phase 4.3 on purpose). The held-out loss is logged for information only.
+epochs: 2
+grad_accum: 8
+early_stopping: false
+loss_chunk: 256                # target positions per logits chunk (V1a memory table)
+
+ckpt_every: 10                 # optimizer steps; a fold is ~112 steps. Drive on Colab.
+ckpt_keep: 2
+# Informational held-out loss (curves in the private W&B project when it is on, and in
+# metrics.jsonl): every eval_every steps AND at every epoch end, always on the SAME eval_pages
+# held-out pages (a fixed seeded subset of the stage's held-out docs, so the curve is comparable
+# and an evaluation costs ~24 forward-only pages, about 80 s on the measured L4 by the FLOP model).
+# NEVER used for stopping, checkpoint choice or any schedule (tests/test_train_resume.py).
+eval_every: 10
+eval_pages: 24                 # at most this many held-out pages per evaluation
+
+# Data (src/shipdoc/trainset.py). Docs with an unplaceable row are trained header-only (their
+# line_items tokens are masked) instead of dropped, to keep their layouts in training.
+ambiguous_policy: header_only  # header_only | exclude
+monotone_boundary: true        # reproduces the V1 counts (38/50 train, 15/16 dev rows resolved)
+# Per page and epoch, P(one header field of that page is hidden and its target set to null).
+# Real redactions: 35 header cells of 500 train+dev docs (35/400 = 8.8% of invoices, recon
+# section 3), i.e. 35 of 671 pages (5.2%), all on invoice_number / invoice_date, so the model sees
+# few natural examples. 0.15 per page, applied to the 73% of train pages that have at least one
+# provably hidable field (391/536), hides a field on ~11% of train pages per epoch, about 2x the
+# natural page rate; the hidden field is any eligible header field, not only the two natural
+# classes (spec 4.2: "over all field types"). A higher rate would teach over-nulling, which G4
+# penalises. Judgment, not tuned.
+occlusion_rate: 0.15
+# Which field is hidden is drawn with these relative weights among the page's hidable fields
+# (default 1). Real redactions are only ever on invoice_number / invoice_date (35 of 35), the two
+# fields whose null-on-redaction behaviour is scored, so they get 4x; the other header fields stay
+# candidates (spec 4.2: all field types). Without it supplier_name alone would be ~45% of draws.
+occlusion_field_weights:
+  invoice_number: 4.0
+  invoice_date: 4.0
+# Digital (.png) pages are scan-degraded with this probability (params: configs/augment_scan.yaml,
+# KS to real scans 0.667 -> 0.199). 0.5 keeps clean digital pages in the mix because ~57% of dev
+# docs are digital; judgment, not tuned.
+scan_prob: 0.5
+
+smoke:
+  steps: 20
+  grad_accum: 2                # 20 steps x 2 = 40 pages (finetune_estimate.py smoke arithmetic)
+  first_last_k: 5
+  min_rel_decrease: 0.05       # mean(last 5 step losses) < 0.95 * mean(first 5)
+  vram_budget_gib:             # fail the smoke above this; T4 usable ~14.5 GiB (UNVERIFIED)
+    bf16: 20.0                 # L4 shows ~22 GiB
+    fp16: 13.5
+    fp32: 20.0
+  max_scaler_skips: 5
+  preflight_longest: true      # one fwd+bwd on the longest-target page before the 20 steps

@@ -1,0 +1,25 @@
+# Fitted by scripts/fit_scan_augment.py (seed 42); see reports/augmentation.md.
+seed: 42
+params:
+  rotate_deg: 1.481
+  paper_gain:
+  - 0.93
+  - 1.0
+  paper_gain_skew: 1.0
+  ink_lift:
+  - 11.432
+  - 25.736
+  blur_sigma:
+  - 0.141
+  - 1.095
+  noise_sigma:
+  - 1.831
+  - 6.808
+  jpeg_quality:
+  - 54
+  - 54
+fit:
+  objective_mean_ks_on_fit_pages: 0.1871
+  n_fit_scans: 100
+  n_fit_digital: 40
+  n_candidates: 161

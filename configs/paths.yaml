@@ -1,0 +1,29 @@
+# Profile defaults for every heavy/location-dependent path. Resolution order (paths.py):
+# environment variable > repo-root .env (gitignored) > this file. Relative values are
+# resolved against the repo root. No machine-specific (drive-letter) paths belong here;
+# put those in .env.
+local:
+  SHIPDOC_DATA_DIR: data
+  SHIPDOC_ASSIGNMENT_DIR: assignment
+  SHIPDOC_RUNS_DIR: runs
+  SHIPDOC_SUBMISSIONS_DIR: submissions  # gitignored; the real target (D:) goes in .env
+  SHIPDOC_OCR_CACHE: cache/ocr
+  SHIPDOC_CKPT_DIR: checkpoints
+  SHIPDOC_TMP_DIR: tmp
+  HF_HOME: cache/hf
+  UV_CACHE_DIR: cache/uv
+  PADDLE_PDX_CACHE_HOME: cache/paddlex
+
+# Colab: inputs are unzipped to local disk (Drive reads are slow); outputs go to Drive so they
+# survive session disconnects.
+colab:
+  SHIPDOC_DATA_DIR: /content/data
+  SHIPDOC_ASSIGNMENT_DIR: /content/assignment
+  SHIPDOC_RUNS_DIR: /content/drive/MyDrive/shipdoc-extract/runs
+  SHIPDOC_SUBMISSIONS_DIR: /content/drive/MyDrive/shipdoc-extract/submissions
+  SHIPDOC_OCR_CACHE: /content/ocr_cache
+  SHIPDOC_CKPT_DIR: /content/drive/MyDrive/shipdoc-extract/checkpoints
+  SHIPDOC_TMP_DIR: /content/tmp
+  HF_HOME: /content/hf
+  UV_CACHE_DIR: /content/uv_cache
+  PADDLE_PDX_CACHE_HOME: /content/paddlex

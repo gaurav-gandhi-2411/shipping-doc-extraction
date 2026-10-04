@@ -1,0 +1,31 @@
+# Spike config (COMPACT output format; model notes: see the json twin): nuextract3 x img_only (spec Phase 2.3). Run with:
+#   python -m shipdoc spike --config configs/spike_nuextract3_img_only_compact.yaml \
+#       --docs splits/spike40.json --split dev --run-id <id>
+# NuExtract3 (Qwen3.5-4B fine-tune), fp16. Takes a JSON template through the `template`
+# chat-template kwarg (built in shipdoc.extract.nuextract_template); the rules and OCR
+# hint go in `instructions`. The repo has no .py files, so trust_remote_code stays false
+# (the card's transformers snippet sets it, but nothing in the repo needs it).
+name: nuextract3_img_only_compact
+arm: img_only  # img_only | img_ocr (reading-order PaddleOCR text as a hint)
+model:
+  key: nuextract3
+  repo: numind/NuExtract3
+  revision: c99dc8f5641b866aa0192b6ea78f84bf9f3535f1  # pinned commit
+  adapter: nuextract3
+  dtype: float16
+  quant: none  # none | nf4
+  attn_implementation: null
+  trust_remote_code: false
+# Visual-token cap: patch 16 x merge 2 = 32 px per token, so tokens = pixels / 32^2.
+# 1280*32*32 -> 1,260 tokens for a 1240x1754 page. The processor default (no cap) is 2,145
+# tokens for that page; 1024*32*32 would give 988. Tune on the spike (spec Phase 2.4).
+max_pixels: 1310720
+# max_new_tokens = roundup64(ceil(p99_page_tokens * 1.25)); p99 of the gold per-page target
+# length of the 400 train docs in the COMPACT format with this model's tokenizer: 883 -> 1104
+# -> 1152 (Qwen3-VL: 884 -> 1105 -> 1152; the 4B reuses the 8B tokenizer, unchecked). Max
+# observed 920/922. reports/output_format.md (UNVERIFIED). Hitting the cap means a truncated page.
+max_new_tokens: 1152
+output_format: compact  # short keys + positional row arrays, expanded by shipdoc.extract.expand_page
+ocr_token_budget: 1200  # img_ocr only: OCR hint truncated line-wise, counted with the model tokenizer
+prompt_version: v2  # must equal shipdoc.prompts.PROMPT_VERSION
+seed: 42

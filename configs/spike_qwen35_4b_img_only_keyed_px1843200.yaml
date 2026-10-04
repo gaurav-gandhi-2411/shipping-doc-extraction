@@ -1,0 +1,35 @@
+# Resolution-sweep config (notebook 06_res_sweep): the production config
+# configs/spike_qwen35_4b_img_only.yaml with ONLY name and max_pixels changed.
+# max_pixels 1843200: 1,750 visual tokens for a 1240x1754 page (grid 1600x1120).
+# Production is 1310720 (1,260 tokens). Compare runs only at equal batch size.
+# Spike config: qwen35_4b x img_only (spec Phase 2.3). Run with:
+#   python -m shipdoc spike --config configs/spike_qwen35_4b_img_only.yaml \
+#       --docs splits/spike40.json --split dev --run-id <id>
+# Qwen3.5-4B, native Qwen3_5ForConditionalGeneration (transformers >= 5.2). fp16: the T4
+# has no bf16. Thinking is forced off by the adapter (enable_thinking=False); the repo
+# ships no generation_config, so every generation arg is passed explicitly.
+name: qwen35_4b_img_only_keyed_px1843200
+arm: img_only  # img_only | img_ocr (reading-order PaddleOCR text as a hint)
+model:
+  key: qwen35_4b
+  repo: Qwen/Qwen3.5-4B
+  revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a  # pinned commit
+  adapter: qwen35
+  dtype: float16
+  quant: none  # none | nf4
+  attn_implementation: null
+  trust_remote_code: false
+# Visual-token cap: patch 16 x merge 2 = 32 px per token, so tokens = pixels / 32^2.
+# 1280*32*32 -> 1,260 tokens for a 1240x1754 page. The processor default (no cap) is 2,145
+# tokens for that page; 1024*32*32 would give 988. Tune on the spike (spec Phase 2.4).
+max_pixels: 1843200
+# max_new_tokens = roundup64(ceil(p99_page_tokens * 1.25)); p99 of the gold per-page target
+# length of the 400 train docs (current json format) with this model's tokenizer: 1190 -> 1488
+# -> 1536 (Qwen3-VL: 1191; the 4B reuses the 8B tokenizer, unchecked). Max observed 1244/1246,
+# so the old cap of 1536 was NOT below the observed max. reports/token_budget.md (UNVERIFIED).
+# Hitting the cap means a truncated (invalid) page.
+max_new_tokens: 1536
+output_format: json  # json | compact (short keys, positional row arrays; reports/output_format.md)
+ocr_token_budget: 1200  # img_ocr only: OCR hint truncated line-wise, counted with the model tokenizer
+prompt_version: v2  # must equal shipdoc.prompts.PROMPT_VERSION
+seed: 42

@@ -1,0 +1,103 @@
+{
+ "_comment": "Trace-measured speeds (spike40 traces at 51cf560, T4): OLS of latency_s on n_output_tokens per config (prefill_s = intercept, decode_tok_s = 1/slope), see reports/spike_diagnosis.md. The traces carry no separate prefill/decode timings, so the intercept also holds fixed per-call overhead; n_input_tokens is near-constant within a config, so prefill cannot be regressed out separately.",
+ "formula": "s_per_page = prefill_s + n_out / decode_tok_s",
+ "n_out_compact": {
+  "qwen35_4b": {
+   "mean": 386.2,
+   "upper_bound": 883
+  },
+  "nuextract3": {
+   "mean": 386.2,
+   "upper_bound": 883
+  },
+  "qwen3vl_8b": {
+   "mean": 387.7,
+   "upper_bound": 884
+  }
+ },
+ "n_out_basis": "reports/output_format.md compact gold tokens/page on train pages: mean and p99 (p95 is not published for the compact format; p99 is the upper bound used)",
+ "n_out_keyed": {
+  "qwen35_4b": {
+   "mean": 531.3,
+   "upper_bound": 1190
+  },
+  "nuextract3": {
+   "mean": 531.3,
+   "upper_bound": 1190
+  },
+  "qwen3vl_8b": {
+   "mean": 532.7,
+   "upper_bound": 1191
+  }
+ },
+ "n_out_keyed_basis": "reports/token_budget.md json-format gold tokens/page on train pages (keyed output format): mean and p99 (the upper bound), same tokenizers as the compact figures",
+ "t4_cu_per_hour": 1.19,
+ "t4_cu_source": "observed by third party (mccormickml.com, checked 2026-03-10); not officially published by Google",
+ "t4_cu_per_hour_conservative": 1.58,
+ "t4_cu_conservative_source": "varlog.info, measured 2024-10-01",
+ "t4_cu_per_hour_note": "Colab compute units per T4 hour. Neither rate is published by Google and Colab can change it; check Runtime -> Manage sessions / Resources in the notebook UI for the real balance. Rates are for T4 only.",
+ "model_load_s": 120,
+ "model_load_s_label": "ESTIMATE: not measured. Seconds per model load (weights from the HF cache or download plus move to GPU), charged once per config run and once per smoke run.",
+ "models": {
+  "qwen35_4b_img_only": {
+   "prefill_s": 2.071,
+   "decode_tok_s": 13.132,
+   "source": "spike40 traces, OLS latency~n_out",
+   "r2": 0.9969,
+   "n_pages": 55,
+   "n_input_tokens_mean": 1875.0,
+   "n_output_tokens_mean": 575.1,
+   "s_per_page_mean": 45.87
+  },
+  "qwen35_4b_img_ocr": {
+   "prefill_s": 1.806,
+   "decode_tok_s": 13.332,
+   "source": "spike40 traces, OLS latency~n_out",
+   "r2": 0.9991,
+   "n_pages": 55,
+   "n_input_tokens_mean": 2353.9,
+   "n_output_tokens_mean": 496.5,
+   "s_per_page_mean": 39.05
+  },
+  "qwen3vl_8b_img_only": {
+   "prefill_s": 2.567,
+   "decode_tok_s": 12.255,
+   "source": "spike40 traces, OLS latency~n_out",
+   "r2": 0.9989,
+   "n_pages": 55,
+   "n_input_tokens_mean": 1856.0,
+   "n_output_tokens_mean": 496.3,
+   "s_per_page_mean": 43.06
+  },
+  "qwen3vl_8b_img_ocr": {
+   "prefill_s": 2.36,
+   "decode_tok_s": 11.815,
+   "source": "spike40 traces, OLS latency~n_out",
+   "r2": 0.9989,
+   "n_pages": 55,
+   "n_input_tokens_mean": 2331.5,
+   "n_output_tokens_mean": 489.8,
+   "s_per_page_mean": 43.81
+  },
+  "nuextract3_img_only": {
+   "prefill_s": 2.069,
+   "decode_tok_s": 13.484,
+   "source": "spike40 traces, OLS latency~n_out",
+   "r2": 0.9991,
+   "n_pages": 55,
+   "n_input_tokens_mean": 2206.0,
+   "n_output_tokens_mean": 497.1,
+   "s_per_page_mean": 38.93
+  },
+  "nuextract3_img_ocr": {
+   "prefill_s": 2.061,
+   "decode_tok_s": 13.616,
+   "source": "spike40 traces, OLS latency~n_out",
+   "r2": 0.9992,
+   "n_pages": 55,
+   "n_input_tokens_mean": 2684.9,
+   "n_output_tokens_mean": 512.5,
+   "s_per_page_mean": 39.7
+  }
+ }
+}

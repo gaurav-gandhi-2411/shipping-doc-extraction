@@ -1,0 +1,36 @@
+# confidential inputs: never commit
+assignment/
+data/
+*.zip
+# run artifacts and caches
+runs/
+wandb/
+cache/
+.cache/
+.venv/
+.claude/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.env
+# model weights
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.gguf
+*.onnx
+uv.toml
+
+# scratch / temp outputs (live under $SHIPDOC_TMP_DIR, never in the repo)
+temp_*
+tmp_*
+*_scratch*
+
+# test predictions never enter git (submissions/<version>/test_predictions.json etc.)
+submissions/
+reports/final/*.pdf
