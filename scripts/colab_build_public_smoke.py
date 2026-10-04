@@ -61,8 +61,10 @@ the 02n smoke gate (`shipdoc.smoke`: JSON validity, no truncation, row counts, q
 shares, no all-null rows, finite logprobs for every emitted field). It never scores anything and
 never writes to Drive: all outputs stay under `/content`.
 
-Needs: a T4 runtime and `MyDrive/shipdoc-extract/data.zip` (the evaluators' images and labels; only
-the 5 smoke documents are read out of it). No secret, no token, no Weights & Biases.
+Needs: a T4 runtime, `MyDrive/shipdoc-extract/data.zip` (the evaluators' images and labels; only
+the 5 smoke documents are read out of it) AND `MyDrive/shipdoc-extract/assignment.zip` (your evaluator
+package: the schema and the scorer, which are not part of this repository; checked before the GPU
+work starts). No secret, no token, no Weights & Biases.
 
 **Parameters:** `DETERMINISM_DOCS` (default 2): that many smoke documents are decoded a second time
 in a fresh process and their raw page texts must be byte-identical to the first pass (about 3
@@ -107,14 +109,15 @@ from google.colab import drive
 
 drive.mount("/content/drive")
 DRIVE_DIR = Path("/content/drive/MyDrive/shipdoc-extract")
-if not (DRIVE_DIR / "data.zip").is_file():
-    raise FileNotFoundError(
-        "Missing MyDrive/shipdoc-extract/data.zip (the evaluators' data package; the repository "
-        "README says how to put it there)."
-    )
+for _zip in ("data.zip", "assignment.zip"):
+    if not (DRIVE_DIR / _zip).is_file():
+        raise FileNotFoundError(
+            f"Missing MyDrive/shipdoc-extract/{_zip}: upload BOTH data.zip and assignment.zip "
+            "(your evaluator package) to MyDrive/shipdoc-extract/ (the repository README says how)."
+        )
 RUNS_DIR = Path("/content/runs")  # local disk, fresh per session: nothing is resumed or kept
 RUNS_DIR.mkdir(parents=True, exist_ok=True)
-print("data.zip present; outputs go to", RUNS_DIR)
+print("data.zip and assignment.zip present; outputs go to", RUNS_DIR)
 """
 
 VERIFY = """# Pin verification: the working tree IS the pinned commit (nothing modified); printed in the banner.
@@ -128,7 +131,7 @@ print(f"pin OK: HEAD {head}, tree {TREE_SHA}")
 UNZIP = """# Only the smoke documents are read out of data.zip: dev page images and dev labels (the gate
 # compares the emitted row counts with the labels' row counts; no label value is printed).
 DATA_DIR = Path("/content/data")
-ASSIGNMENT_DIR = Path("/content/assignment")  # unused (no scorer here); the install cell sets it
+ASSIGNMENT_DIR = Path("/content/assignment")  # the install cell points SHIPDOC_ASSIGNMENT_DIR here
 DEV_LABELS = DATA_DIR / "dev" / "labels"
 smoke_ids = json.loads((REPO / SMOKE_DOCS).read_text(encoding="utf-8"))
 assert len(smoke_ids) == 5 == len(set(smoke_ids)), f"{SMOKE_DOCS}: expected 5 distinct documents"
@@ -144,6 +147,19 @@ for d in smoke_ids:
     assert (DEV_LABELS / f"{d}.json").is_file(), f"data.zip has no label file for {d}"
     assert list((DATA_DIR / "dev" / "images").glob(f"{d}_p*")), f"data.zip has no images for {d}"
 print(f"smoke data OK: {len(smoke_ids)} documents, {len(members)} files extracted")
+
+# assignment.zip (the evaluators' package, never vendored in this repository) holds assignment/ with
+# schema.json (the post-processing rules read it) and score.py. Checked BEFORE the install and the
+# model cells so that a missing or wrong package costs seconds, not a GPU run.
+shutil.copyfile(DRIVE_DIR / "assignment.zip", Path("/content/assignment.zip"))
+with zipfile.ZipFile("/content/assignment.zip") as zf:
+    zf.extractall("/content")
+for _need in ("schema.json", "score.py"):
+    assert (ASSIGNMENT_DIR / _need).is_file(), (
+        f"assignment.zip has no assignment/{_need}: upload BOTH data.zip and assignment.zip "
+        "(your evaluator package) to MyDrive/shipdoc-extract/"
+    )
+print("assignment OK: schema.json and score.py present in", ASSIGNMENT_DIR)
 """
 
 DETERMINISM = """# DETERMINISM (cheap): the first DETERMINISM_DOCS smoke documents are decoded AGAIN in a fresh

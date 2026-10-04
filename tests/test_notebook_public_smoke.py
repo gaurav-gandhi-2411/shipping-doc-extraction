@@ -119,10 +119,18 @@ def _synthetic_zip(path: Path) -> None:
         zf.writestr("data/dev/images/dev_0001_p2.jpg", b"img2")
 
 
+def _assignment_zip(path: Path, members: tuple[str, ...] = ("schema.json", "score.py")) -> None:
+    """A fake evaluator package: placeholder files only (the real one is confidential)."""
+    with zipfile.ZipFile(path, "w") as zf:
+        for name in members:
+            zf.writestr(f"assignment/{name}", "{}")
+
+
 def _ns_with_drive(tmp_path: Path) -> dict[str, Any]:
     drive = tmp_path / "drive" / "MyDrive" / "shipdoc-extract"
     drive.mkdir(parents=True)
     _synthetic_zip(drive / "data.zip")
+    _assignment_zip(drive / "assignment.zip")
     ns = _params()
     ns.update(DRIVE_DIR=drive, REPO=ROOT, Path=Path, json=json)
     import shutil
@@ -147,6 +155,42 @@ def test_unzip_refuses_a_data_zip_without_a_smoke_document(tmp_path: Path) -> No
         zf.writestr("data/dev/labels/dev_0001.json", "{}")
     with pytest.raises(AssertionError, match="no label file|no images"):
         exec(_redirect(_src(UNZIP), tmp_path), ns)
+
+
+def test_unzip_extracts_the_assignment_package_and_asserts_it_before_install(
+    tmp_path: Path,
+) -> None:
+    ns = _ns_with_drive(tmp_path)
+    exec(_redirect(_src(UNZIP), tmp_path), ns)
+    assert (tmp_path / "assignment" / "schema.json").is_file()
+    assert (tmp_path / "assignment" / "score.py").is_file()
+    # the assert sits in a cell BEFORE the install cell (and so before any model load)
+    assert "schema.json" in _src(UNZIP) and "score.py" in _src(UNZIP)
+    assert UNZIP < INSTALL < SMOKE
+
+
+@pytest.mark.parametrize("missing", ["schema.json", "score.py"])
+def test_unzip_refuses_an_assignment_package_without_schema_or_scorer(
+    tmp_path: Path, missing: str
+) -> None:
+    ns = _ns_with_drive(tmp_path)
+    keep = tuple(n for n in ("schema.json", "score.py") if n != missing)
+    _assignment_zip(ns["DRIVE_DIR"] / "assignment.zip", keep)
+    with pytest.raises(AssertionError, match="upload BOTH data.zip and assignment.zip"):
+        exec(_redirect(_src(UNZIP), tmp_path), ns)
+
+
+def test_mount_cell_names_both_zips_when_one_is_missing(tmp_path: Path) -> None:
+    drive = tmp_path / "MyDrive" / "shipdoc-extract"
+    drive.mkdir(parents=True)
+    _synthetic_zip(drive / "data.zip")  # no assignment.zip
+    src = _src(MOUNT).replace("from google.colab import drive\n", "")
+    src = src.replace('drive.mount("/content/drive")', "").replace(
+        'Path("/content/drive/MyDrive/shipdoc-extract")', f"Path({drive.as_posix()!r})"
+    )
+    src = src.replace('Path("/content/runs")', f"Path({(tmp_path / 'runs').as_posix()!r})")
+    with pytest.raises(FileNotFoundError, match="upload BOTH data.zip and assignment.zip"):
+        exec(src, {})
 
 
 def _git(cwd: Path, *args: str) -> str:

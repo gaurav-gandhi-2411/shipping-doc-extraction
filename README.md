@@ -40,13 +40,20 @@ token or a private repository. The code of the submission is the first commit of
 `3e88cc8` (`3e88cc8aa4bc2c33ac676c4c52395271f570b9cd`): the notebooks clone this repository and assert that
 `HEAD` equals it. A commit cannot name its own SHA, so the second commit only writes that pin into
 the notebooks, the configuration `configs/public_notebooks.json` and this README; the tag
-`submission-v1.5` marks it, and the Colab badges below open each notebook at that tag. Nothing
-else differs between the two commits (`git diff --stat <pin> submission-v1.5`). Both long notebooks
-are resumable: after a disconnect, Run all again (finished stages are skipped).
+`submission-v1.5` marks it. Nothing else differs between the two commits (`git diff --stat <pin>
+submission-v1.5`). A later commit, tagged `submission-v1.5.1`, fixes the smoke notebook (it did
+not unpack `assignment.zip`, so its post-processing could not read `schema.json`) and makes every
+notebook stop right after the unzip step, before any install or GPU work, if `assignment/schema.json`
+or `assignment/score.py` is missing; it changes only this README, the notebooks and their builder
+and test files, and the pin stays the first commit. The Colab badges below open each notebook at
+`submission-v1.5.1`. Both long notebooks are resumable: after a disconnect, Run all again (finished
+stages are skipped).
 
 1. **Put the evaluators' package into Google Drive**, folder `MyDrive/shipdoc-extract/` of the
-   account you sign in with in Colab (no account is checked). Two files, both made from the
-   evaluators' package and NOT included here:
+   account you sign in with in Colab (no account is checked). Upload BOTH `data.zip` and
+   `assignment.zip` (your own copy of the evaluator package): every notebook needs both, the data
+   for the documents and the assignment folder for `schema.json` (the post-processing rules read it)
+   and `score.py`. Two files, both made from the evaluators' package and NOT included here:
    - `data.zip`: a zip whose top-level folder is `data/` with `train/`, `dev/` and `test/`, each
      holding `images/<doc_id>_p<page>.jpg` and (train and dev only) `labels/<doc_id>.json`;
    - `assignment.zip`: a zip whose top-level folder is `assignment/` holding the evaluators' five
@@ -57,7 +64,7 @@ are resumable: after a disconnect, Run all again (finished stages are skipped).
    the OCR stage itself, on the 280 test pages only.
 2. **Run `02n_zeroshot500_native`** (zero-shot over the 500 labelled documents; it sets the batch
    size the test run must reuse and is the baseline of every comparison below).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5/notebooks/02n_zeroshot500_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5.1/notebooks/02n_zeroshot500_native.ipynb)
    Runtime type T4 GPU, then Run all with every parameter at its default (the sha7 of the run
    folders is the pin's). Measured basis for the duration: 12,022 s of summed per-page decoding
    time over its 671 pages in the original run (about 3.3 T4 hours; wall-clock is longer by the
@@ -65,7 +72,7 @@ are resumable: after a disconnect, Run all again (finished stages are skipped).
    picks the largest batch size whose outputs are byte-identical to batch 1 and that fits the GPU;
    it chose 4 in the original run (8 ran out of memory).
 3. **Run `04c_predict_test_native`** (the 200 test documents, 280 pages).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5/notebooks/04c_predict_test_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5.1/notebooks/04c_predict_test_native.ipynb)
    Same runtime, Run all, defaults (`MODEL = "zs"`). It runs a 5-document smoke gate, the test
    documents at the 02n batch size, a determinism pass, the OCR stage (PaddleOCR in its own
    environment) and the validated assembly with the rules R1 to R3. The original run took 5,664.5 s
@@ -120,11 +127,14 @@ verified.
 
 ### Smoke test of the repository on a T4 (about 15 to 20 minutes)
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5/notebooks/public_smoke.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5.1/notebooks/public_smoke.ipynb)
 `public_smoke.ipynb` clones this repository without a token, refuses unless `HEAD` is the pin,
 installs from `uv.lock`, decodes 5 documents (the same smoke gate as 02n) and prints a banner. It
-needs only `data.zip`. It does not reproduce anything: it shows that the clone, the pin, the
-install and the GPU decoding path work.
+needs BOTH `data.zip` (only the 5 smoke documents are read out of it) and `assignment.zip` (your
+evaluator package: `schema.json` and `score.py`, neither is part of this repository) in
+`MyDrive/shipdoc-extract/`, and stops before any GPU work, with a message, if either is missing. It
+does not reproduce anything: it shows that the clone, the pin, the install and the GPU decoding
+path work.
 
 ### Which code the pin runs
 
@@ -169,8 +179,9 @@ processor = AutoProcessor.from_pretrained(BASE, revision=REVISION)
 base = Qwen3_5ForConditionalGeneration.from_pretrained(
     BASE, revision=REVISION, torch_dtype=torch.float16  # fp16 on a T4 (no bf16); bf16 on an L4
 )
-# the folder holding adapter_config.json and adapter_model.safetensors from the Hugging Face repo
-model = PeftModel.from_pretrained(base, "./adapter")
+# the `peft/` folder of the Hugging Face repo (it holds adapter_config.json and
+# adapter_model.safetensors; the repo mirrors the training run's final/ folder)
+model = PeftModel.from_pretrained(base, "./adapter/peft")
 ```
 
 ## Architecture

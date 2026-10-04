@@ -72,7 +72,7 @@ WANDB_PROJECT = "shipdoc-extract-debug"  # must be a PRIVATE project (checked be
 
 ACCOUNT_MD = """## Account
 
-**Drive must be mounted as `your-drive-account@example.com`.** The data, OCR cache and run outputs
+**Drive must be mounted as `gauravgandhi429@gmail.com`.** The data, OCR cache and run outputs
 live in that account's `MyDrive/shipdoc-extract/`. The next cell mounts Drive, tries to read the
 account with `gcloud auth list`, and fails if a *different* account is detected. If the account
 cannot be detected it prints a reminder: check it yourself in the mount dialog.
@@ -83,7 +83,7 @@ from pathlib import Path
 
 from google.colab import drive
 
-EXPECTED_ACCOUNT = "your-drive-account@example.com"
+EXPECTED_ACCOUNT = "gauravgandhi429@gmail.com"
 DRIVE_DIR = Path("/content/drive/MyDrive/shipdoc-extract")
 REQUIRED_ZIPS = ["data.zip", "assignment.zip", "ocr_cache.zip"]
 RUNS_DIR = DRIVE_DIR / "runs"
@@ -141,7 +141,7 @@ CLONE = '''import base64
 import subprocess
 from pathlib import Path
 
-REPO_URL = "https://github.com/example-owner/example-repo.git"
+REPO_URL = "https://github.com/gaurav-gandhi-2411/shipdoc-extract.git"
 REPO = Path("/content/shipdoc-extract")
 if not PINNED_SHA or "FILL" in PINNED_SHA:
     raise ValueError("Set PINNED_SHA in the parameters cell to the commit this run is pinned to.")
@@ -268,11 +268,36 @@ _PRIVATE_OCR = re.compile(r'(?m)^REUSE_OCR_FROM = "submissions/v1_[0-9a-f]+".*$'
 PUBLIC_FORBIDDEN = ("GH_TOKEN", "x-access-token", "EXPECTED_ACCOUNT", "gauravgandhi", "D:\\shipdoc")
 
 
+ASSIGN_MARK = "upload BOTH data.zip and assignment.zip"
+_ASSIGN_CHECK = """
+
+# Public build: the evaluators' package (assignment.zip, never vendored in the repository) must be
+# complete BEFORE the install and model cells; the post-processing rules read its schema.json.
+for _need in ("schema.json", "score.py"):
+    assert ({where} / _need).is_file(), (
+        f"assignment.zip has no assignment/{{_need}}: upload BOTH data.zip and assignment.zip "
+        "(your evaluator package) to MyDrive/shipdoc-extract/"
+    )
+"""
+
+
+def public_assignment_check(source: str) -> str:
+    """Public build only: end an unzip cell of assignment.zip with the schema.json/score.py assert.
+
+    The private cells already work and stay byte-identical (this runs from ``public_cell`` only).
+    """
+    if "assignment.zip" not in source or "extractall" not in source or ASSIGN_MARK in source:
+        return source
+    where = "ASSIGNMENT_DIR" if "ASSIGNMENT_DIR =" in source else 'REPO / "assignment"'
+    return source.rstrip("\n") + "\n" + _ASSIGN_CHECK.format(where=where)
+
+
 def public_cell(kind: str, source: str) -> str:
     """One notebook cell of the public build: no token, no account check, no local D: paths."""
     if kind == "markdown" and source.startswith("## Account\n"):
         source = PUBLIC_ACCOUNT_MD
     if kind == "code":
+        source = public_assignment_check(source)
         if _SECRET_LINE in source:
             source = source.replace(_SECRET_LINE, "")
             source = source.replace('print("GH_TOKEN: set | ', 'print("')
