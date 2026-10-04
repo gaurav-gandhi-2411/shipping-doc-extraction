@@ -37,7 +37,7 @@ steps (Part 1) and the fine-tuning evidence (Part 2) below are complete and do n
 
 Reproduction runs on Google Colab (T4) from this repository at a pinned commit; nothing needs a
 token or a private repository. The code of the submission is the first commit of this repository,
-`[[PUBLISH:pin_sha7]]` (`[[PUBLISH:pin_sha]]`): the notebooks clone this repository and assert that
+`3e88cc8` (`3e88cc8aa4bc2c33ac676c4c52395271f570b9cd`): the notebooks clone this repository and assert that
 `HEAD` equals it. A commit cannot name its own SHA, so the second commit only writes that pin into
 the notebooks, the configuration `configs/public_notebooks.json` and this README; the tag
 `submission-v1.5` marks it, and the Colab badges below open each notebook at that tag. Nothing
@@ -57,7 +57,7 @@ are resumable: after a disconnect, Run all again (finished stages are skipped).
    the OCR stage itself, on the 280 test pages only.
 2. **Run `02n_zeroshot500_native`** (zero-shot over the 500 labelled documents; it sets the batch
    size the test run must reuse and is the baseline of every comparison below).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/[[PUBLISH:repo_slug]]/blob/submission-v1.5/notebooks/02n_zeroshot500_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5/notebooks/02n_zeroshot500_native.ipynb)
    Runtime type T4 GPU, then Run all with every parameter at its default (the sha7 of the run
    folders is the pin's). Measured basis for the duration: 12,022 s of summed per-page decoding
    time over its 671 pages in the original run (about 3.3 T4 hours; wall-clock is longer by the
@@ -65,7 +65,7 @@ are resumable: after a disconnect, Run all again (finished stages are skipped).
    picks the largest batch size whose outputs are byte-identical to batch 1 and that fits the GPU;
    it chose 4 in the original run (8 ran out of memory).
 3. **Run `04c_predict_test_native`** (the 200 test documents, 280 pages).
-   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/[[PUBLISH:repo_slug]]/blob/submission-v1.5/notebooks/04c_predict_test_native.ipynb)
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5/notebooks/04c_predict_test_native.ipynb)
    Same runtime, Run all, defaults (`MODEL = "zs"`). It runs a 5-document smoke gate, the test
    documents at the 02n batch size, a determinism pass, the OCR stage (PaddleOCR in its own
    environment) and the validated assembly with the rules R1 to R3. The original run took 5,664.5 s
@@ -76,13 +76,13 @@ are resumable: after a disconnect, Run all again (finished stages are skipped).
    (`CALIBRATOR_FILE = None` stops it with an instruction, after the predictions are validated):
    that is expected, not a failure; run the banner cell alone. Download `test_predictions.json`,
    `trace.jsonl`, `manifest.json`, `validation_report.json`, `rules.jsonl` and `ocr_timing.json`
-   from `MyDrive/shipdoc-extract/submissions/v15_[[PUBLISH:pin_sha7]]/` and the folder
+   from `MyDrive/shipdoc-extract/submissions/v15_3e88cc8/` and the folder
    `MyDrive/shipdoc-extract/ocr_cache_test/` (its layout is `paddleocr/test/<page>.json`).
 5. **Compute the review flags on CPU** (a local clone at the pin; copy the submission folder first
    because the second command rewrites its manifest and report):
 
    ```
-   git clone [[PUBLISH:repo_url]] shipdoc-extract && cd shipdoc-extract && git checkout [[PUBLISH:pin_sha]]
+   git clone https://github.com/gaurav-gandhi-2411/shipdoc-extract-public.git shipdoc-extract && cd shipdoc-extract && git checkout 3e88cc8aa4bc2c33ac676c4c52395271f570b9cd
    uv sync --frozen
    uv run python -m shipdoc.predict_native flags --model zs --submission-dir <copy of v15 folder> --calibrator meta/calibrator_zs_native.json --ocr-cache <ocr_cache_test folder> --batch-size 4 --field-target 0.98 --doc-target 0.98 --expect-docs 200
    uv run python -m shipdoc.predict_native check-flags --out-dir <copy of v15 folder> --calibrator meta/calibrator_zs_native.json --field-target 0.98 --doc-target 0.98 --expect-docs 200
@@ -104,7 +104,7 @@ are resumable: after a disconnect, Run all again (finished stages are skipped).
 | batch size | 4, the size stored with the 02n run (the test run refuses any other) |
 | rule slot shapes (`meta/slot_shapes.json`) sha256 | `920088327fcfe95dada188292bb4966f2b08a928624e34e34553ea633a7afd99` |
 | rules on the 200 test documents | R1 4 changes in 4 documents, R2 8 changes in 6 documents, R3 174 changes in 15 documents, none skipped |
-| `manifest.json` `code_sha` | `[[PUBLISH:pin_sha]]` (this repository's pin) |
+| `manifest.json` `code_sha` | `3e88cc8aa4bc2c33ac676c4c52395271f570b9cd` (this repository's pin) |
 | determinism pass | 5 of 5 documents byte-identical |
 | flags | `flags_ok=True`, 200 documents |
 
@@ -120,7 +120,7 @@ verified.
 
 ### Smoke test of the repository on a T4 (about 15 to 20 minutes)
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/[[PUBLISH:repo_slug]]/blob/submission-v1.5/notebooks/public_smoke.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/gaurav-gandhi-2411/shipdoc-extract-public/blob/submission-v1.5/notebooks/public_smoke.ipynb)
 `public_smoke.ipynb` clones this repository without a token, refuses unless `HEAD` is the pin,
 installs from `uv.lock`, decodes 5 documents (the same smoke gate as 02n) and prints a banner. It
 needs only `data.zip`. It does not reproduce anything: it shows that the clone, the pin, the
@@ -352,5 +352,5 @@ glob; without it that analysis skips the tokenizer part) and `wandb_log_public.p
 
 The code in this repository is released under the Apache License 2.0 (`LICENSE`, copyright 2026
 Gaurav Gandhi). The adapter weights are released under Apache-2.0, the licence of the base model
-`Qwen/Qwen3.5-4B` as read from its model card on [[PUBLISH:base_licence_date]]. The evaluators'
+`Qwen/Qwen3.5-4B` as read from its model card on 2026-10-04. The evaluators'
 package (images, labels, scorer, task text) is not covered by this licence and is not included.
