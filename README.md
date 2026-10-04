@@ -5,15 +5,18 @@
 ![code licence](https://img.shields.io/badge/code%20licence-Apache--2.0-green)
 ![adapter licence](https://img.shields.io/badge/adapter%20licence-Apache--2.0-green)
 
-Structured JSON extraction from page images of commercial invoices and air waybills, using only
-the images (no OCR text goes into the model). The model is `Qwen/Qwen3.5-4B` read at its native
-page resolution (2,145 visual tokens per page), its output is constrained to the task schema, and
-three deterministic post-processing rules plus a calibrated per-field review flag sit on top.
-Two systems are evaluated here: **v1.5**, the zero-shot base model plus the rules plus review
-flags, and **v2**, the LoRA-fine-tuned model plus the same rules and flags. The section "Final
-system" below states which one was submitted. The zero-shot baseline with the rules scores 88.51
-OVERALL on the 500 labelled documents (83.86 without the rules); an all-empty baseline scores 1.93
-(train) and 1.65 (dev).
+I built this to turn page images of commercial invoices and air waybills into structured JSON.
+Only the images go in: no OCR text is fed to the model. The pipeline has five steps: the page
+image, a fine-tuned vision-language model (`Qwen/Qwen3.5-4B` with a LoRA adapter) reading it at
+native resolution, schema-constrained JSON output, three repair rules, then a per-field
+confidence and a review flag.
+
+The headline: on 500 labelled documents from suppliers held out of training, the fine-tuned
+system scores 93.31, against 88.51 for the same model without fine-tuning. The caveat: that is
+the only unseen-supplier estimate, there is no test score (there are no test labels), and
+the review flags are advisory and fall short of my 98% precision target on some row fields. I
+also kept the zero-shot version (v1.5) as the baseline the fine-tuned one (v2, the submitted
+system) had to beat; the section "Final system" below has the details.
 
 **No data is included.** There is no page image, no label, no OCR text and no model output on a
 test document in this repository. The document ids that appear in it (`splits/`, `meta/`, a few
@@ -22,6 +25,35 @@ refer to that package, they are not values, and without the package they point a
 reproduce anything that reads images you need the evaluators' package (see step 1 below). The tree
 and its history were scanned against every train and dev label value of eight or more characters
 (no hit). The reports are aggregates only.
+
+## Results
+
+Scores are the official scorer's OVERALL, in percent, with 95% confidence intervals.
+
+| Set | Fine-tuned (v2) | Without fine-tuning |
+|---|---|---|
+| Unseen suppliers (500 labelled documents, suppliers held out of training) | 93.31 [92.05, 94.50] | 88.51 |
+| Dev (100 documents, layouts seen in training) | 98.12 [96.76, 99.29] | 89.31 |
+| False fills (cells filled where the label is empty) | 5 | 76 |
+| Over-nulls (cells left empty where the label has a value) | 7 | 33 |
+
+The dev score is not evidence of generalisation, because those layouts were in training; use the
+unseen-supplier row. On dev, the review flags are 96.9% precise on the fields they auto-accept and send
+75.1% of the errors to review (cross-fitted).
+
+## Reproduce in 5 steps
+
+Everything runs on Google Colab (T4) from this repository at a pinned commit; no token needed.
+The evaluators' data is not included.
+
+1. Put `data.zip` and `assignment.zip` (the evaluators' package) into Drive at `MyDrive/shipdoc-extract/`.
+2. Optional smoke test: run the smoke notebook (see "Smoke test of the repository on a T4" below).
+3. Run `02n_zeroshot500_native`, then `04c_predict_test_native` (defaults), at tag `submission-v1.5.1`.
+4. For the fine-tuned model, download the adapter from https://huggingface.co/gauravgandhi2411/shipdoc-extract-qwen3.5-4b-lora into Drive and run `04c_predict_test_native` again with `MODEL = "ft"`.
+   `test_predictions.json` must have sha256
+   440c4c74fbc606b5fa553065730feec9bf67512428d708f071513e69394ef704.
+5. Compute the review flags on CPU with `uv run python -m shipdoc.predict_native flags ...`
+   (full commands in "Reproduce v2 without retraining", step 6).
 
 ## Final system
 
